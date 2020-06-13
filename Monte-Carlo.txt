@@ -1,0 +1,590 @@
+#include <stdio.h>
+#include <time.h>
+#include <random>
+#include <math.h>
+#include "conmanip.h"
+
+using namespace conmanip;
+
+//вершина
+struct vertex {
+    double x = 0;
+    double y = 0;
+    //для генерации случайного многоугольника
+    double angle = 0;
+};
+
+double func_MonteKarlo(vertex*, int, int);
+double func_MonteKarlo(int, double(*)(vertex, double), double);
+bool func_IsInnerPoint(vertex*, vertex, int);
+bool func_IsInnerPoint(double(*)(vertex, double), vertex, double);
+void func_RandomPolygon(vertex*, int);
+bool func_CompareStrings(char*, const char*);
+void func_GetRectangle(vertex*, int, double&, double&, double&, double&);
+void func_GetRectangle(double(*)(vertex, double), double&, double&, double&, double&, double);
+double func_Circle(vertex, double);
+double func_Lemniscate(vertex, double);
+double func_Astroid(vertex, double);
+//double func_Lissajous(vertex, double, double, double, double, double);
+
+
+int main(int argc, char* argv[])
+{
+    srand(time(NULL));
+
+    if (argc == 1) {
+        printf("write \"help\" as command\n");
+    }
+    else {
+        if (func_CompareStrings(argv[1], "help")) {
+            printf("random\t\tcreate random calculate its sqire\n");
+            printf("polygon\t\tallows user to create its own polygon and calculate its squire\n");
+            printf("analitics\tcalculate squire of fugures from analitics math and draws them on the screen (you need to choose after)\n");
+            printf("\tcircle\t\tcalculate squire of circle and draw it on the screen\n");
+            printf("\tastroid\t\tcalculate squire of astroid and draw in on the screen\n");
+            printf("\tlemniscate\tcalculate squire of lemniscate of Bernulli and draw in on the screen\n");
+        }
+        else {
+            if (func_CompareStrings(argv[1], "random") || func_CompareStrings(argv[1], "polygon")) {
+                int number_verteces;    //кол-во вершин
+                int number_points;      //кол-во точек для метода
+                double squire;
+
+                printf("Enter number of vertecles in polygon:\t");
+                scanf_s("%i", &number_verteces);
+
+                //проверка внесённых данных
+                if (number_verteces <= 0) {
+                    printf("Number of vertecles must be more then 0\n");
+                    while (number_verteces <= 0) {
+                        printf("Enter number of vertecles:\t");
+                        scanf_s("%i", &number_verteces);
+                    }
+                }
+
+                //массив вершин
+                vertex* verteces = new vertex[number_verteces];
+
+                if (func_CompareStrings(argv[1], "random")) {
+                    func_RandomPolygon(verteces, number_verteces);
+                }
+                else {
+                    printf("Enter coordinates of polygon vertecles:\n");
+                    for (int i = 0; i < number_verteces; i++) {
+                        printf("%i VERTEX:\t", i + 1);
+                        scanf_s("%lf", &(verteces[i].x));
+                        scanf_s("%lf", &(verteces[i].y));
+                    }
+
+                    printf("\nvertecles of polygon:\n");
+                    for (int i = 0; i < number_verteces; i++) {
+                        printf("%i %f %f\n", i + 1, verteces[i].x, verteces[i].y);
+                    }
+                }
+
+                printf("\nEnter number of points for Monte-Carlo metod:\t");
+                scanf_s("%i", &number_points);
+
+                squire = func_MonteKarlo(verteces, number_verteces, number_points);
+                printf("SQUIRE OF POLYGON:\t%g", squire);
+            }
+            else {
+                if (func_CompareStrings(argv[1], "analitics")) {
+                    if (func_CompareStrings(argv[2], "circle")) {
+                        double radius = 0;
+                        int number_points = 0;
+                        double squire = 0;
+
+                        printf("Enter radius of circle:\t");
+                        scanf_s("%lf", &radius);
+
+
+                        printf("Enter numbers of points for Monte-Carlo metod:\t");
+                        scanf_s("%i", &number_points);
+
+                        squire = func_MonteKarlo(number_points, func_Circle, radius);
+                        printf("Squire of circle:\t%g", squire);
+                    }
+                    else {
+                        if (func_CompareStrings(argv[2], "lemniscate")) {
+                            double focus = 0;
+                            int number_points = 0;
+                            double squire = 0;
+
+                            printf("Enter focus of lemniscate:\t");
+                            scanf_s("%lf", &focus);
+
+
+                            printf("Enter numbers of points for Monte-Carlo metod:\t");
+                            scanf_s("%i", &number_points);
+
+                            squire = func_MonteKarlo(number_points, func_Lemniscate, focus);
+                            printf("Squire of lemniscate:\t%g", squire);
+                        }
+                        else {
+                            if (func_CompareStrings(argv[2], "astroid")) {
+                                double radius = 0;
+                                int number_points = 0;
+                                double squire = 0;
+
+                                printf("Enter radius of astroid:\t");
+                                scanf_s("%lf", &radius);
+
+
+                                printf("Enter numbers of points for Monte-Carlo metod:\t");
+                                scanf_s("%i", &number_points);
+
+                                squire = func_MonteKarlo(number_points, func_Astroid, radius);
+                                printf("Squire of astroid:\t%g", squire);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    system("pause > 0");
+    system("cls");
+    return 0;
+}
+
+    void func_GetRectangle(vertex* verteces, int number_verteces, double& min_x, double& max_x, double& min_y, double& max_y) 
+{
+    min_x = verteces[0].x;
+    max_x = verteces[0].x;
+    min_y = verteces[0].y;
+    max_y = verteces[0].y;
+
+    for (int i = 0; i < number_verteces; i++) 
+    {
+        if (verteces[i].x > max_x) max_x = verteces[i].x;
+        if (verteces[i].x < min_x) min_x = verteces[i].x;
+        if (verteces[i].y > max_y) max_y = verteces[i].y;
+        if (verteces[i].y < min_y) min_y = verteces[i].y;
+    }
+}
+
+
+void func_GetRectangle(double(*function)(vertex, double), double& min_x, double& max_x, double& min_y, double& max_y, double radius)
+ 
+   {
+   
+    if (function == func_Circle || function == func_Astroid) {
+        min_x = -radius;
+        min_y = -radius;
+        max_x = radius;
+        max_y = radius;
+    }
+    
+else {
+        if (function == func_Lemniscate) {
+            min_x = -radius * sqrt(2);
+            min_y = -1.0 * radius / sqrt(2);
+            max_x = radius * sqrt(2);
+            max_y = 1.0 * radius / sqrt(2);
+        }
+    }
+}
+
+//Функция для подсчёта площади методом Монте-Карло и вывода фигуры на экран
+double func_MonteKarlo(vertex* verteces, int number_verteces, int number_points) {
+    double squire_rectangle;
+    int number_inner_points = 0;
+    bool is_inner_point = false;
+    double min_x = 0;
+    double min_y = 0;
+    double max_x = 0;
+    double max_y = 0;
+    vertex point;
+
+    func_GetRectangle(verteces, number_verteces, min_x, max_x, min_y, max_y);
+    squire_rectangle = 1.0 * (max_x - min_x) * (max_y - min_y);
+
+    //Подсчёт ширины и высоты многоугольника
+    int width = (int)((max_x - min_x) * 2.25) + 1;  
+    int heigth = (int)(max_y - min_y) + 1;
+    double k_x = (1.0 * 80) / width;               
+    double k_y = (1.0 * 30) / heigth;             
+
+    double k = min(k_x, k_y);                      
+
+    //Массив для хранения кол-ва попаданий
+    int** points = new int* [30];
+    for (int i = 0; i < 30; ++i) {
+        points[i] = new int[80];
+        for (int j = 0; j < 80; ++j) {
+            points[i][j] = 0;
+        }
+    }
+
+    for (int l = 0; l < number_points; l++) {
+        //Генерация случайных точек для попадания
+        point.x = rand() * 1.0 / (RAND_MAX) * (max_x - min_x) + min_x;
+        point.y = rand() * 1.0 / (RAND_MAX) * (max_y - min_y) + min_y;
+
+        if (func_IsInnerPoint(verteces, point, number_verteces)) {
+            number_inner_points++;
+            //Если точка внутри многоугольника, то она заносится в массив
+            int x = (int)((point.x - min_x - 0.001) * 2.25 * k);
+            int y = (int)((point.y - min_y - 0.001) * k);
+
+            //Переворот оси OY вверх
+            ++points[29 - y][x];
+        }
+    }
+
+    //Очистка экрана перед выводом на экран
+    printf("Press any key to output figure on the screen");
+    system("pause > 0");
+    system("cls");
+
+    printf("\t\t\t\tYour figure:");
+    console_out_context ctxout(console_cleanup_options::restore_all);
+    console_out conout(ctxout);
+
+    conout.settitle("Monte-Carlo");
+    for (int i = 29; i > -1; --i) {
+        for (int j = 0; j < 80; ++j) {
+            if (points[i][j] > 0) {
+                conout.settextcolor(console_text_colors::light_green);
+                conout.setbgcolor(console_bg_colors::light_green);
+                if (points[i][j] > 10) {
+                    conout.settextcolor(console_text_colors::green);
+                    conout.setbgcolor(console_bg_colors::green);
+                    if (points[i][j] > 20) {
+                        conout.settextcolor(console_text_colors::light_red);
+                        conout.setbgcolor(console_bg_colors::light_red);
+                        if (points[i][j] > 30) {
+                            conout.settextcolor(console_text_colors::red);
+                            conout.setbgcolor(console_bg_colors::red);
+                        }
+                    }
+                }
+                conout.setpos(j + 25, i + 2);
+                std::cout << points[i][j];
+                conout.settextcolor(console_text_colors::white);
+                conout.setbgcolor(console_bg_colors::black);
+            }
+        }
+    }
+
+    conout.setpos(80, 30 + 1);
+    printf("\nNumber of points: %i\n", number_inner_points);
+    printf("Square of rectangle: %f\n", squire_rectangle);
+
+    printf("Press any key to output squire");
+    system("pause > 0");
+    system("cls");
+
+    return squire_rectangle * 1.0 * number_inner_points / number_points;
+}
+
+double func_MonteKarlo(int number_points, double(*function)(vertex, double), double radius) {
+    double squire_rectangle;
+    int number_inner_points = 0;
+    bool is_inner_point = false;
+    double min_x = 0;
+    double min_y = 0;
+    double max_x = 0;
+    double max_y = 0;
+    vertex point;
+
+    func_GetRectangle(function, min_x, max_x, min_y, max_y, radius);
+    squire_rectangle = 1.0 * (max_x - min_x) * (max_y - min_y);
+
+    //Подсчёт ширины и высоты многоугольника
+    int width = (int)((max_x - min_x) * 2.25) + 1;  
+    int heigth = (int)(max_y - min_y) + 1;
+    double k_x = (1.0 * 80) / width;                
+    double k_y = (1.0 * 30) / heigth;              
+    double k = min(k_x, k_y);                       
+
+    //Массив для хранения кол-ва попаданий
+    int** points = new int* [30];
+    for (int i = 0; i < 30; ++i) {
+        points[i] = new int[80];
+        for (int j = 0; j < 80; ++j) {
+            points[i][j] = 0;
+        }
+    }
+
+    for (int l = 0; l < number_points; l++) {
+        //Генерация случайных точек для попадания
+        point.x = rand() * 1.0 / (RAND_MAX) * (max_x - min_x) + min_x;
+        point.y = rand() * 1.0 / (RAND_MAX) * (max_y - min_y) + min_y;
+
+        if (func_IsInnerPoint(function, point, radius)) {
+            number_inner_points++;
+            //Если точка внутри многоугольника, то она заносится в массив
+            int x = (int)((point.x - min_x - 0.00000001) * 2.25 * k);
+            int y = (int)((point.y - min_y - 0.00000001) * k);
+
+            //Переворот оси OY вверх
+            ++points[29 - y][x];
+        }
+    }
+
+    //Очистка экрана перед выводом на экран
+    printf("Press any key to output figure on the screen");
+    system("pause > 0");
+    system("cls");
+
+    printf("\t\t\t\tYour figere:");
+    console_out_context ctxout(console_cleanup_options::restore_all);
+    console_out conout(ctxout);
+
+    conout.settitle("Monte-Carlo");
+    for (int i = 29; i > -1; --i) {
+        for (int j = 0; j < 80; ++j) {
+            if (points[i][j] > 0) {
+                conout.settextcolor(console_text_colors::light_green);
+                conout.setbgcolor(console_bg_colors::light_green);
+                if (points[i][j] > 10) {
+                    conout.settextcolor(console_text_colors::green);
+                    conout.setbgcolor(console_bg_colors::green);
+                    if (points[i][j] > 20) {
+                        conout.settextcolor(console_text_colors::light_red);
+                        conout.setbgcolor(console_bg_colors::light_red);
+                        if (points[i][j] > 30) {
+                            conout.settextcolor(console_text_colors::red);
+                            conout.setbgcolor(console_bg_colors::red);
+                        }
+                    }
+                }
+                conout.setpos(j + 25, i + 2);
+                std::cout << points[i][j];
+                conout.settextcolor(console_text_colors::white);
+                conout.setbgcolor(console_bg_colors::black);
+            }
+        }
+    }
+
+    conout.setpos(80, 30 + 1);
+    printf("\nNumber of points: %i\n", number_inner_points);
+    printf("Squire of rectangle: %f\n", squire_rectangle);
+
+    printf("Press any key to output squire");
+    system("pause > 0");
+    system("cls");
+
+    return squire_rectangle * 1.0 * number_inner_points / number_points;
+};
+
+//Функция для определения является ли точка внутренней в многоугольнике
+
+bool func_IsInnerPoint(vertex* array_tops, vertex point, int number_tops) {
+    double k, b;
+    int number_crossings = 0;
+  
+
+    for (int i = 0; i < number_tops; i++) {
+        int k1, k2;
+
+        if (i == number_tops - 1) {
+            k1 = i;
+            k2 = 0;
+        }
+        else {
+            k1 = i;
+            k2 = i + 1;
+        }
+
+        k = 1.0 * (array_tops[k1].y - array_tops[k2].y) / (array_tops[k1].x - array_tops[k2].x);
+        b = array_tops[k1].y - 1.0 * k * array_tops[k1].x;
+
+        if (k != INFINITY && k != -INFINITY) {
+            if ((point.y == k * point.x + b) &&
+                ((point.y >= array_tops[k1].y && point.y <= array_tops[k2].y) || (point.y <= array_tops[k1].y && point.y >= array_tops[k2].y)) &&
+                ((point.x >= array_tops[k1].x && point.x <= array_tops[k2].x) || (point.x <= array_tops[k1].x && point.x >= array_tops[k2].x)))
+            {
+                return true;
+            }
+        }
+        else {
+            if (point.x == array_tops[k1].x && ((point.y >= array_tops[k1].y && point.y <= array_tops[k2].y) || (point.y <= array_tops[k1].y && point.y >= array_tops[k2].y))) {
+                return true;
+            }
+        }
+    }
+
+    //Проверка находится ли точка нутри многоугольника
+       for (int i = 0; i < number_tops; i++) {
+       int k1, k2;
+      
+
+     //Проверка элементов на приналдежность к массиву
+        if (i == number_tops - 1) {
+            k1 = i;
+            k2 = 0;
+        }
+        else {
+            k1 = i;
+            k2 = i + 1;
+        }
+
+        k = 1.0 * (array_tops[k1].y - array_tops[k2].y) / (array_tops[k1].x - array_tops[k2].x);
+        b = array_tops[k1].y - 1.0 * k * array_tops[k1].x;
+       
+        if (k >= 0 && k != INFINITY && point.y >= (1.0 * k * point.x + b) && ((point.y > array_tops[k1].y && point.y < array_tops[k2].y) || (point.y < array_tops[k1].y && point.y > array_tops[k2].y))) {
+            number_crossings++;
+        }
+       
+        if (k <= 0 && k != -INFINITY && point.y <= (1.0 * k * point.x + b) && ((point.y > array_tops[k1].y && point.y < array_tops[k2].y) || (point.y < array_tops[k1].y && point.y > array_tops[k2].y))) {
+            number_crossings++;
+        }
+        
+        if ((k == INFINITY || k == -INFINITY) && point.x < array_tops[k1].x && ((point.y > array_tops[k1].y && point.y < array_tops[k2].y) || (point.y < array_tops[k1].y && point.y > array_tops[k2].y))) {
+            number_crossings++;
+        }
+        //Если сторона лежит на луче
+        if (k == 0 && point.y == array_tops[k1].y) {
+            int i1, i2;
+
+            if (k1 == 0) {
+                i1 = number_tops - 1;
+            }
+            else {
+                i1 = i - 1;
+            }
+
+            if (k2 == (number_tops - 1)) {
+                i2 = 0;
+            }
+            else {
+                i2 = i + 2;
+            }
+
+          
+            if ((array_tops[i1].y < point.y && array_tops[i2].y > point.y) || (array_tops[i1].y > point.y && array_tops[i2].y < point.y)) {
+                number_crossings++;
+            }
+           
+            if ((array_tops[i1].y > point.y && array_tops[i2].y > point.y) || (array_tops[i1].y < point.y && array_tops[i2].y < point.y)) {
+                number_crossings += 2;
+            }
+        }
+        //Если луч пересекает конец отрезка (Многоугольник)
+        if (point.y == array_tops[k1].y) {
+            int i1, i2;
+
+            if (k1 == 0) {
+                i1 = number_tops - 1;
+            }
+            else {
+                i1 = i - 1;
+            }
+
+            if (k2 == (number_tops - 1)) {
+                i2 = 0;
+            }
+            else {
+                i2 = i + 1;
+            }
+
+           
+            if ((array_tops[i1].y < point.y && array_tops[i2].y > point.y) || (array_tops[i1].y > point.y && array_tops[i2].y < point.y)) {
+                number_crossings++;
+           
+            if ((array_tops[i1].y < point.y && array_tops[i2].y < point.y) || (array_tops[i1].y > point.y && array_tops[i2].y > point.y)) {
+                number_crossings += 2;
+            }
+        }
+    }
+
+   
+    if (number_crossings % 2 != 0) return true;
+    else return false;
+    //Чётное кол-во - точка снаружи
+    //Нечётное кол-во - точка внутри
+}
+
+
+//Функция для определения является ли точка внутренней 
+
+bool func_IsInnerPoint(double(*function)(vertex, double), vertex vertex, double radius) 
+{
+    if (function(vertex, radius) <= 0) {
+        return true;
+    }
+    return false;
+}
+
+//Функция для генерации случайного многоугольника
+void func_RandomPolygon(vertex* polygon, int number_tops) {
+    double min_x, max_x, min_y, max_y;
+    vertex center;
+
+    printf("Enter borders for random vertex of the polygon\n");
+    printf("Min x: "); scanf_s("%lf", &min_x);
+    printf("Max x: "); scanf_s("%lf", &max_x);
+    printf("Min y: "); scanf_s("%lf", &min_y);
+    printf("Max y: "); scanf_s("%lf", &max_y);
+
+    center.x = (max_x + min_x) / 2.0;
+    center.y = (max_y + min_y) / 2.0;
+
+    for (int i = 0; i < number_tops; i++) {
+        polygon[i].x = rand() * 1.0 / (RAND_MAX) * (max_x - min_x) + min_x;
+        polygon[i].y = rand() * 1.0 / (RAND_MAX) * (max_y - min_y) + min_y;
+        polygon[i].angle = atan(1.0 * (polygon[i].y - center.y) / (polygon[i].x - center.x));
+        if ((polygon[i].x - center.x) < 0 && (polygon[i].y - center.y) > 0) {
+            polygon[i].angle = 3.141592654 - abs(polygon[i].angle);
+        }
+        else {
+            if ((polygon[i].x - center.x) < 0 && (polygon[i].y - center.y) < 0) {
+                polygon[i].angle = 3.141592654 + abs(polygon[i].angle);
+            }
+            else {
+                if ((polygon[i].x - center.x) > 0 && (polygon[i].y - center.y) < 0) {
+                    polygon[i].angle = 2 * 3.141592654 - abs(polygon[i].angle);
+                }
+            }
+        }
+    }
+
+    //Сортировка по углам
+    for (int i = 0; i < number_tops - 1; i++) {
+        for (int j = 0; j < number_tops - i - 1; j++) {
+            if (polygon[j].angle > polygon[j + 1].angle) {
+                vertex temp = polygon[j];
+                polygon[j] = polygon[j + 1];
+                polygon[j + 1] = temp;
+            }
+        }
+    }
+}
+
+//Функция для сравнения двух строк
+bool func_CompareStrings(char* string1, const char* string2) {
+    if (strlen(string1) != strlen(string2)) {
+        return false;
+    }
+    for (int i = 0; i < strlen(string1); i++) {
+        if (string1[i] != string2[i]) return false;
+    }
+    return true;
+}
+
+
+//Функция для круга
+//X^2 + Y^2 <= R^2 ИЛИ X^2 + Y^2 - R^2 <= 0
+//Если возвращаемое значение меньше нуля, то точка находится внутри
+double func_Circle(vertex v, double radius) {
+    return v.x * v.x + v.y * v.y - radius * radius;
+}
+
+
+//Функция для лемнискаты Бернулли
+//(X^2 + Y^2)^2 <= 2*A^2*(X^2 - Y^2) ИЛИ (X^2 + Y^2)^2 - 2*A^2*(X^2 - Y^2) <= 0
+//Если возвращаемое значение меньше нуля, то точка находится внутри
+double func_Lemniscate(vertex v, double focus) {
+    return (v.x * v.x + v.y * v.y) * (v.x * v.x + v.y * v.y) - 2 * focus * focus * (v.x * v.x - v.y * v.y);
+}
+
+
+//Функция для астроиды
+//X ^ (2 / 3) + Y ^ (2 / 3) - R ^ (2 / 3) <= 0
+//Если возвращаемое значение меньше нуля, то точка находится внутри
+double func_Astroid(vertex v, double radius) {
+    return pow(v.x * v.x, 1.0 / 3) + pow(v.y * v.y, 1.0 / 3) - pow(radius * radius, 1.0 / 3);
+}
